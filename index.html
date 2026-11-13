@@ -107,6 +107,10 @@
       color: #57d98a;
       margin-left: 8px;
     }
+    .pill.closed {
+      background: #351212;
+      color: #e88;
+    }
     button {
       font-family: inherit;
       font-size: 15px;
@@ -163,6 +167,17 @@
       margin-top: 14px;
       word-break: break-all;
     }
+    .owner-box {
+      background: #1a162b;
+      border: 1px solid #4a3b7a;
+      border-radius: 10px;
+      padding: 16px;
+      margin-top: 16px;
+    }
+    .owner-box h4 {
+      margin: 0 0 8px 0;
+      color: #cbb4ff;
+    }
   </style>
 </head>
 <body>
@@ -173,7 +188,7 @@
         <div class="byline">
           Artist: <strong>Vinay K Nandishettar</strong> &bull; 
           <a href="https://x.com/VIBEZVKN" target="_blank">@VIBEZVKN</a> &bull;
-          <a href="https://sepolia.basescan.org/address/0x362A5aA296C934411A45BFA93d26Fc8C49A7dfE7" target="_blank">Smart Contract ↗</a>
+          <a href="https://sepolia.etherscan.io/address/0x41B8681b94775E8517e8e072D6eb822F2E736Da9" target="_blank">Ethereum Sepolia Contract ↗</a>
         </div>
       </div>
       <div>
@@ -202,13 +217,29 @@
         <div class="stat-badge">
           Price: <strong>0.015 ETH</strong> &nbsp;&bull;&nbsp;
           Minted: <strong id="supply-count">0</strong> / <strong>300</strong>
-          <span class="pill" id="sale-pill">Sale Open</span>
+          <span class="pill" id="sale-pill">Ethereum Sepolia</span>
         </div>
         <button id="mint-btn" class="primary" onclick="handleMint()">
           Mint for 0.015 ETH
         </button>
       </div>
       <div id="mint-status" class="status-msg"></div>
+
+      <!-- Owner Quick Controls (Visible only when contract owner is connected) -->
+      <div id="owner-panel" class="owner-box" style="display: none;">
+        <h4>👑 Artist Controls (You are the Contract Owner)</h4>
+        <p style="font-size: 13px; color: #b5a8cb; margin: 0 0 12px 0;">
+          Mint the Genesis Token #0 directly to your wallet, or enable the public minter sale.
+        </p>
+        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+          <button class="ghost" style="font-size: 13px; padding: 8px 16px;" onclick="ownerMint()">
+            🎨 Mint Genesis Token #0 (Free)
+          </button>
+          <button class="ghost" id="open-sale-btn" style="font-size: 13px; padding: 8px 16px;" onclick="openPublicSale()">
+            🚀 Authorize Minter & Open Public Sale
+          </button>
+        </div>
+      </div>
     </div>
 
     <!-- Artist Statement -->
@@ -227,13 +258,15 @@
   </div>
 
   <script>
-    const TOKEN_ADDR = "0x362A5aA296C934411A45BFA93d26Fc8C49A7dfE7";
+    // Ethereum Sepolia Contract Settings
+    const TOKEN_ADDR = "0x41B8681b94775E8517e8e072D6eb822F2E736Da9";
     const MINTER_ADDR = "0xfb5C61274a3A7dA83CcDD88DdEC914438244E2c9";
-    const CHAIN_ID = "0x14a34"; // 84532 in hex (Base Sepolia)
-    const RPC_URL = "https://sepolia.base.org";
+    const CHAIN_ID = "0xaa36a7"; // 11155111 in hex (Ethereum Sepolia)
+    const RPC_URL = "https://ethereum-sepolia-rpc.publicnode.com";
     const PRICE_WEI = "15000000000000000"; // 0.015 ETH
 
     let userAccount = null;
+    let contractOwner = null;
 
     function getRandomHash() {
       let h = "0x";
@@ -250,15 +283,36 @@
       frame.src = './preview.html?hash=' + hash;
     }
 
-    async function checkSupply() {
+    async function checkContractState() {
       try {
         const provider = new ethers.JsonRpcProvider(RPC_URL);
-        const abi = ["function totalSupply() view returns (uint256)"];
+        const abi = [
+          "function totalSupply() view returns (uint256)",
+          "function owner() view returns (address)",
+          "function minter() view returns (address)",
+          "function paused() view returns (bool)"
+        ];
         const contract = new ethers.Contract(TOKEN_ADDR, abi, provider);
-        const supply = await contract.totalSupply();
+        const [supply, ownerAddr, currentMinter, isPaused] = await Promise.all([
+          contract.totalSupply(),
+          contract.owner(),
+          contract.minter(),
+          contract.paused()
+        ]);
+
         document.getElementById('supply-count').textContent = supply.toString();
+        contractOwner = ownerAddr.toLowerCase();
+
+        // Check if owner panel should show
+        if (userAccount && userAccount.toLowerCase() === contractOwner) {
+          document.getElementById('owner-panel').style.display = 'block';
+          if (!isPaused && currentMinter.toLowerCase() === MINTER_ADDR.toLowerCase()) {
+            document.getElementById('open-sale-btn').textContent = "✓ Public Sale is Active";
+            document.getElementById('open-sale-btn').disabled = true;
+          }
+        }
       } catch (err) {
-        console.error("Error reading supply:", err);
+        console.error("Error reading contract state:", err);
       }
     }
 
@@ -272,7 +326,7 @@
         userAccount = accounts[0];
         document.getElementById('connect-btn').textContent = userAccount.slice(0, 6) + "..." + userAccount.slice(-4);
         
-        // Switch to Base Sepolia
+        // Switch to Ethereum Sepolia
         try {
           await window.ethereum.request({
             method: 'wallet_switchEthereumChain',
@@ -284,14 +338,15 @@
               method: 'wallet_addEthereumChain',
               params: [{
                 chainId: CHAIN_ID,
-                chainName: 'Base Sepolia',
-                nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
+                chainName: 'Ethereum Sepolia',
+                nativeCurrency: { name: 'Sepolia ETH', symbol: 'ETH', decimals: 18 },
                 rpcUrls: [RPC_URL],
-                blockExplorerUrls: ['https://sepolia.basescan.org']
+                blockExplorerUrls: ['https://sepolia.etherscan.io']
               }]
             });
           }
         }
+        checkContractState();
       } catch (err) {
         console.error(err);
       }
@@ -305,7 +360,7 @@
 
       const statusEl = document.getElementById('mint-status');
       const mintBtn = document.getElementById('mint-btn');
-      statusEl.textContent = "Initiating mint transaction in your wallet...";
+      statusEl.textContent = "Initiating mint transaction in MetaMask...";
       mintBtn.disabled = true;
 
       try {
@@ -327,8 +382,8 @@
 
         statusEl.textContent = `Transaction submitted: ${tx.hash.slice(0, 10)}... Waiting for confirmation.`;
         await tx.wait();
-        statusEl.textContent = "🎉 Minted successfully! Your new FAULTLINE piece has been created on-chain!";
-        checkSupply();
+        statusEl.textContent = "🎉 Minted successfully! Your new FAULTLINE piece has been created on Ethereum Sepolia!";
+        checkContractState();
       } catch (err) {
         console.error(err);
         statusEl.textContent = err.reason || err.message || "Transaction cancelled or failed.";
@@ -337,9 +392,60 @@
       }
     }
 
+    async function ownerMint() {
+      const statusEl = document.getElementById('mint-status');
+      statusEl.textContent = "Minting Genesis Token #0 to your wallet...";
+      try {
+        const provider = new ethers.BrowserProvider(window.ethereum);
+        const signer = await provider.getSigner();
+        const abi = ["function mint(address to) returns (uint256)"];
+        const contract = new ethers.Contract(TOKEN_ADDR, abi, signer);
+        const tx = await contract.mint(userAccount);
+        statusEl.textContent = `Genesis mint submitted: ${tx.hash.slice(0, 10)}... Confirming.`;
+        await tx.wait();
+        statusEl.textContent = "🎉 Token #0 minted directly into your wallet!";
+        checkContractState();
+      } catch (err) {
+        console.error(err);
+        statusEl.textContent = err.reason || err.message || "Owner mint failed.";
+      }
+    }
+
+    async function openPublicSale() {
+      const statusEl = document.getElementById('mint-status');
+      statusEl.textContent = "Authorizing minter and opening public sale...";
+      try {
+        const provider = new ethers.BrowserProvider(window.ethereum);
+        const signer = await provider.getSigner();
+        const abi = [
+          "function setMinter(address minter)",
+          "function setPrimaryPayee(address payee)",
+          "function unpause()"
+        ];
+        const contract = new ethers.Contract(TOKEN_ADDR, abi, signer);
+        
+        statusEl.textContent = "Step 1/3: Approving setMinter in MetaMask...";
+        const tx1 = await contract.setMinter(MINTER_ADDR);
+        await tx1.wait();
+
+        statusEl.textContent = "Step 2/3: Approving setPrimaryPayee in MetaMask...";
+        const tx2 = await contract.setPrimaryPayee(userAccount);
+        await tx2.wait();
+
+        statusEl.textContent = "Step 3/3: Unpausing contract in MetaMask...";
+        const tx3 = await contract.unpause();
+        await tx3.wait();
+
+        statusEl.textContent = "🚀 Public sale is now officially OPEN on Ethereum Sepolia!";
+        checkContractState();
+      } catch (err) {
+        console.error(err);
+        statusEl.textContent = err.reason || err.message || "Failed to open sale.";
+      }
+    }
+
     window.addEventListener('load', () => {
-      checkSupply();
-      // Read initial hash from preview iframe after it loads
+      checkContractState();
       setTimeout(() => {
         const frame = document.getElementById('art-frame');
         if (frame && frame.contentWindow && frame.contentWindow.tokenData) {

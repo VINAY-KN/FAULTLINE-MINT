@@ -68,22 +68,19 @@
       font-weight: 600;
       letter-spacing: 0.5px;
     }
-    #art-canvas-container {
+    .iframe-wrapper {
       width: 100%;
-      max-width: 460px;
-      aspect-ratio: 3/4;
+      max-width: 500px;
       margin: 0 auto;
-      background: transparent;
-      display: flex;
-      align-items: center;
-      justify-content: center;
+      border-radius: 8px;
       overflow: hidden;
-      border-radius: 6px;
       box-shadow: 0 12px 36px rgba(0,0,0,0.6);
+      background: #000;
     }
-    #art-canvas-container svg {
-      width: 100% !important;
-      height: 100% !important;
+    #art-frame {
+      width: 100%;
+      height: 640px;
+      border: none;
       display: block;
     }
     .mint-row {
@@ -163,7 +160,7 @@
       font-family: monospace;
       font-size: 11px;
       color: #7a7684;
-      margin-top: 12px;
+      margin-top: 14px;
       word-break: break-all;
     }
   </style>
@@ -193,8 +190,10 @@
         </button>
       </div>
 
-      <div id="art-canvas-container"></div>
-      <div class="hash-display">Sample Token Hash: <span id="current-hash">Generating...</span></div>
+      <div class="iframe-wrapper">
+        <iframe id="art-frame" src="./preview.html" title="FAULTLINE Preview"></iframe>
+      </div>
+      <div class="hash-display">Sample Token Hash: <span id="current-hash">Loading initial iteration...</span></div>
     </div>
 
     <!-- Minting Card -->
@@ -227,9 +226,6 @@
     </div>
   </div>
 
-  <!-- Load the generative art script -->
-  <script src="./art.js"></script>
-
   <script>
     const TOKEN_ADDR = "0x362A5aA296C934411A45BFA93d26Fc8C49A7dfE7";
     const MINTER_ADDR = "0xfb5C61274a3A7dA83CcDD88DdEC914438244E2c9";
@@ -250,18 +246,8 @@
     function renderNewVariation() {
       const hash = getRandomHash();
       document.getElementById('current-hash').textContent = hash;
-      const container = document.getElementById('art-canvas-container');
-      container.innerHTML = "";
-      
-      // Setup Art Blocks tokenData
-      window.tokenData = { hash: hash, tokenId: 1 };
-      
-      if (typeof generate === 'function') {
-        generate(hash);
-        if (typeof SVG !== 'undefined') {
-          container.innerHTML = SVG;
-        }
-      }
+      const frame = document.getElementById('art-frame');
+      frame.src = './preview.html?hash=' + hash;
     }
 
     async function checkSupply() {
@@ -326,7 +312,7 @@
         const provider = new ethers.BrowserProvider(window.ethereum);
         const signer = await provider.getSigner();
         
-        // Purchase function signature: purchase(address token, address paymentToken, uint256 maxPricePerToken)
+        // purchase(address token, address paymentToken, uint256 maxPricePerToken)
         const minterAbi = [
           "function purchase(address token, address paymentToken, uint256 maxPricePerToken) payable returns (uint256)"
         ];
@@ -351,10 +337,15 @@
       }
     }
 
-    // Initialize on load
     window.addEventListener('load', () => {
-      renderNewVariation();
       checkSupply();
+      // Read initial hash from preview iframe after it loads
+      setTimeout(() => {
+        const frame = document.getElementById('art-frame');
+        if (frame && frame.contentWindow && frame.contentWindow.tokenData) {
+          document.getElementById('current-hash').textContent = frame.contentWindow.tokenData.hash;
+        }
+      }, 500);
     });
   </script>
 </body>

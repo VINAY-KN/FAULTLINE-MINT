@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <style>
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: transparent;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    svg {
+      max-width: 100%;
+      max-height: 100%;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+      border-radius: 6px;
+    }
+  </style>
+  <script>
+    function genRandomHash() {
+      let h = "0x";
+      for (let i = 0; i < 64; i++) {
+        h += Math.floor(Math.random() * 16).toString(16);
+      }
+      return h;
+    }
+    const urlParams = new URLSearchParams(window.location.search);
+    const mockHash = urlParams.get('hash') || genRandomHash();
+    window.tokenData = {
+      hash: mockHash,
+      tokenId: 1
+    };
+  </script>
+</head>
+<body>
+  <script src="./art.js"></script>
+</body>
+</html>
